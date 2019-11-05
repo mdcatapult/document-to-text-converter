@@ -11,7 +11,7 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
-        <file>log/consumer-unarchive.${myTimestamp}.log</file>
+        <file>log/consumer-raw-text.${myTimestamp}.log</file>
         <append>false</append>
         <encoder>
             <pattern>%d{yyyy-MM-dd_HH:mm:ss.SSS} %-5level[%thread] %logger{1} - %msg%n</pattern>

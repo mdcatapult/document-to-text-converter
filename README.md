@@ -6,11 +6,11 @@ contents using the Apache tika parser (as used under the hood in the
 the LeadMine NER consumer).
 
 The resulting file is stored on the filesystem and pushed back into the
-document library via the prefetch queue.
+document library *via* the prefetch queue.
 
 ## Execution
 
-This is a scala application that runs in side the JVM
+This is a scala application that runs inside the JVM
 
 ```bash
 java -jar consumer-raw-text.jar
@@ -20,20 +20,21 @@ java -jar consumer-raw-text.jar
 
 The app allows runtime configuration via environment variables.
 
-Consumer-specific configuration options:
+#### Consumer-specific configuration options:
 
-* **RAWTEXT_TARGETPROPERTY** - target property on the original document
-to add the file path of the newly created raw text file
 * **RAWTEXT_TO_PATH** - the target filesystem path for the new raw text
 files (default: `/efs/derivatives/rawtext/`)
 
-*Example* - For a source value
-`/efs/ebi/supplementary_data/PMC123456/example.doc`
+*Example* - For a source value:
+
+`/doclib/ebi/supplementary_data/PMC123456/example.doc`
+
 the new text file will be created as:
-`/efs/derivatives/rawtext/ebi/supplementary_data/PMC123456/example.txt`
+
+`/doclib/derivatives/rawtext/ebi/supplementary_data/PMC123456/example.txt`
 
 
-General configuration options:
+#### General configuration options:
 
 * **MONGO_USERNAME** - login username for mongodb
 * **MONGO_PASSWORD** - login password for mongodb
