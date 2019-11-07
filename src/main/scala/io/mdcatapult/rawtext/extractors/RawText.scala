@@ -1,6 +1,7 @@
 package io.mdcatapult.rawtext.extractors
 
 import java.io._
+import java.nio.file.Paths
 
 import com.typesafe.config.Config
 import io.mdcatapult.doclib.loader.SourceLoader
@@ -20,7 +21,7 @@ class RawText(source: String)(implicit config: Config) extends TargetPath {
     */
   def getRawTextFilePath: String = {
     val baseName = FilenameUtils.getBaseName(source)
-    return f"${targetPath}${baseName}.txt"
+    Paths.get(config.getString("doclib.root"), targetPath, baseName + ".txt").toString
   }
 
 
