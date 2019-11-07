@@ -5,13 +5,54 @@ import java.nio.file.Paths
 
 import com.typesafe.config.Config
 import io.mdcatapult.doclib.loader.SourceLoader
-import io.mdcatapult.doclib.util._
 import org.apache.commons.io.FilenameUtils
 
-class RawText(source: String)(implicit config: Config) extends TargetPath {
+class RawText(source: String)(implicit config: Config) {
 
   // set the target path using the source parent directory path and the configured `to` path
-  lazy val targetPath: String = getTargetPath(FilenameUtils.getFullPath(source), config.getString("rawtext.to.path"))
+  lazy val targetPath: String = getTargetPath(source, config.getString("rawtext.to.path"), Some("raw_text"))
+  val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
+
+  def getAbsPath(path: String): String = {
+    Paths.get(doclibRoot, path).toAbsolutePath.toString
+  }
+
+  /**
+   * determines common root paths for two path string
+   * @param paths List[String]
+   * @return String common path component
+   */
+  protected def commonPath(paths: List[String]): String = {
+    val SEP = "/"
+    val BOUNDARY_REGEX = s"(?=[$SEP])(?<=[^$SEP])|(?=[^$SEP])(?<=[$SEP])"
+    def common(a: List[String], b: List[String]): List[String] = (a, b) match {
+      case (aa :: as, bb :: bs) if aa equals bb => aa :: common(as, bs)
+      case _ => Nil
+    }
+    if (paths.length < 2) paths.headOption.getOrElse("")
+    else paths.map(_.split(BOUNDARY_REGEX).toList).reduceLeft(common).mkString
+  }
+
+  /**
+   * generate new file path maintaining file path from origin but allowing for intersection of common root paths
+   * @param source String
+   * @return String full path to new target
+   */
+  def getTargetPath(source: String, base: String, prefix: Option[String] = None): String = {
+    val targetRoot = base.replaceAll("/+$", "")
+    val regex = """(.*)/(.*)$""".r
+    source match {
+      case regex(path, file) ⇒
+        val c = commonPath(List(targetRoot, path))
+        val scrubbed = path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", "")
+        val targetPath = scrubbed match {
+          case path if path.startsWith(config.getString("doclib.local.target-dir")) => path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", "")
+          case path if path.startsWith(config.getString("doclib.remote.target-dir")) => path
+        }
+        Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath.replaceFirst(base, ""), s"${prefix.getOrElse("")}-$file").toString
+      case _ ⇒ source
+    }
+  }
 
   /**
     * Concatenates the targetPath, source file baseName and `.txt` extension
@@ -20,6 +61,7 @@ class RawText(source: String)(implicit config: Config) extends TargetPath {
     * @return the new raw test filepath as a String
     */
   def getRawTextFilePath: String = {
+    //TODO This method may or may not be needed depending on whether we go for raw.txt or filename.txt
     val baseName = FilenameUtils.getBaseName(source)
     Paths.get(config.getString("doclib.root"), targetPath, baseName + ".txt").toString
   }
@@ -31,12 +73,15 @@ class RawText(source: String)(implicit config: Config) extends TargetPath {
     * @return the new raw text filepath as a String
     */
   def extract : String = {
-    val rawTextFilePath = getRawTextFilePath
-    val rawTextFile = new File(rawTextFilePath)
-    rawTextFile.getParentFile.mkdirs()
-    val bw = new BufferedWriter(new FileWriter(rawTextFile))
-    bw.write(SourceLoader.load(source).mkString("\n"))
+    // TODO Not clear whether file should be 'raw.txt' or 'filename.txt'
+    val relPath = Paths.get(targetPath, "raw.txt").toString
+    val sourcePath = Paths.get(getAbsPath(source))
+    val target = new File(getAbsPath(relPath))
+    target.getParentFile.mkdirs()
+    val bw = new BufferedWriter(new FileWriter(target))
+    bw.write(SourceLoader.load(sourcePath.toString).mkString("\n"))
     bw.close()
-    rawTextFilePath
+    relPath
   }
+
 }
