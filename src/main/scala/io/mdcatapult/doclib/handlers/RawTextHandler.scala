@@ -8,7 +8,7 @@ import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
-import io.mdcatapult.doclib.models.metadata.MetaString
+import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.rawtext.extractors.RawText
 import org.bson.types.ObjectId
@@ -54,6 +54,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg])
     })
 
   def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {
+    // Let prefetch know that it is an unarchived derivative
+    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "rawtext"))
     prefetch.send(PrefetchMsg(
       source = newFilePath,
       origin = Some(List(Origin(
@@ -65,7 +67,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg])
         )),
       ))),
       tags = doc.tags,
-      metadata = doc.metadata,
+      metadata = Some(doc.metadata.get ::: derivativeMetadata),
       derivative = Some(true)
     ))
     Future.successful(Some(true))
