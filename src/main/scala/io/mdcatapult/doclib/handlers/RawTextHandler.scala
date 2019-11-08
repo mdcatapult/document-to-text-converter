@@ -67,7 +67,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg])
         )),
       ))),
       tags = doc.tags,
-      metadata = Some(doc.metadata.get ::: derivativeMetadata),
+      metadata = Some(doc.metadata.getOrElse(Nil) ::: derivativeMetadata),
       derivative = Some(true)
     ))
     Future.successful(Some(true))
