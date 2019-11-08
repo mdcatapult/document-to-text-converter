@@ -54,7 +54,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg])
     })
 
   def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {
-    // Let prefetch know that it is an unarchived derivative
+    // Let prefetch know that it is an rawtext derivative
     val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "rawtext"))
     prefetch.send(PrefetchMsg(
       source = newFilePath,
