@@ -6,48 +6,79 @@ import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages._
-import io.mdcatapult.doclib.models.PrefetchOrigin
+import io.mdcatapult.klein.queue.Sendable
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
+import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
+import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.rawtext.extractors.RawText
-import io.mdcatapult.klein.queue.Queue
 import org.bson.types.ObjectId
-import org.mongodb.scala.{Document, MongoCollection}
-import org.mongodb.scala.bson.{BsonBoolean, BsonDocument, BsonNull, BsonValue}
-import org.mongodb.scala.model.Filters.{and, equal}
+import org.mongodb.scala.MongoCollection
+import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.model.Updates._
 import org.mongodb.scala.result.UpdateResult
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
-import scala.collection.JavaConverters._
 
-class RawTextHandler(downstream: Queue[PrefetchMsg])(implicit ac: ActorSystem, ex: ExecutionContextExecutor, config: Config, collection: MongoCollection[Document]) extends LazyLogging {
 
-  def enqueue(newFilePath: String, doc: Document): Future[Option[Boolean]] = {
-    downstream.send(PrefetchMsg(
+class RawTextHandler(prefetch: Sendable[PrefetchMsg])
+                    (implicit ac: ActorSystem,
+                     ex: ExecutionContextExecutor,
+                     config: Config,
+                     collection: MongoCollection[DoclibDoc]
+                    ) extends LazyLogging {
+
+  lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
+
+  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] =
+    (for {
+      doc ← OptionT(fetch(msg.id))
+      started: UpdateResult ← OptionT(flags.start(doc))
+      // TODO - validate mimetype here??
+      newFilePath ← OptionT(extractRawText(doc.source))
+      persisted ← OptionT(persist(doc, newFilePath))
+      _ ← OptionT(enqueue(newFilePath, doc))
+      _ ← OptionT(flags.end(doc, started.getModifiedCount > 0))
+    } yield (newFilePath, persisted)).value.andThen({
+
+      case Success(result) ⇒ result match {
+        case Some(r) ⇒ logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
+        case None ⇒ logger.info(f"${msg.id} - no document found")
+      }
+      case Failure(err) ⇒ OptionT(fetch(msg.id)).value.andThen({
+        case Success(result) ⇒ result match {
+          case Some(foundDoc) ⇒ flags.error(foundDoc, noCheck = true)
+          case None => //Do nothing. The error is bubbling up. There is no mongo doc to set flags on
+        }
+      })
+    })
+
+  def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {
+    // Let prefetch know that it is an rawtext derivative
+    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "rawtext"))
+    prefetch.send(PrefetchMsg(
       source = newFilePath,
-      origin = Some(List(PrefetchOrigin(
+      origin = Some(List(Origin(
         scheme = "mongodb",
-        metadata = Some(Map[String, Any](
-          "db" → config.getString("mongo.database"),
-          "collection" → config.getString("mongo.collection"),
-          "_id" → doc.getObjectId("_id").toString))))),
-      tags = Some(doc.getList("tags", classOf[String]).asScala.toList ::: List("rawtext")),
-      metadata = Some(doc.getOrElse("metadata", new BsonDocument()).asDocument()),
+        metadata = Some(List(
+          MetaString("db", config.getString("mongo.database")),
+          MetaString("collection", config.getString("mongo.collection")),
+          MetaString("_id", doc._id.toHexString),
+        )),
+      ))),
+      tags = doc.tags,
+      metadata = Some(doc.metadata.getOrElse(Nil) ::: derivativeMetadata),
       derivative = Some(true)
     ))
     Future.successful(Some(true))
   }
 
 
-  def persist(doc: Document, newFilePath: String): Future[Option[UpdateResult]] = {
-    val id = doc.getObjectId("_id")
-    val query = equal("_id", id)
-    collection.updateOne(query, and(
-      addToSet(config.getString("rawtext.targetProperty"), newFilePath),
-      set(config.getString("doclib.flag"), true)
-    )).toFutureOption()
+  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[UpdateResult]] = {
+    collection.updateOne(equal("_id", doc._id),
+      addToSet("derivatives", Derivative("rawtext", newFilePath)),
+    ).toFutureOption()
   }
-
 
   def extractRawText(source: String): Future[Option[String]] =
     Try(new RawText(source).extract) match {
@@ -55,43 +86,7 @@ class RawTextHandler(downstream: Queue[PrefetchMsg])(implicit ac: ActorSystem, e
       case Failure(e) ⇒ throw e
     }
 
-
-  def fetch(id: String): Future[Option[Document]] =
+  def fetch(id: String): Future[Option[DoclibDoc]] =
     collection.find(equal("_id", new ObjectId(id))).first().toFutureOption()
-
-  /**
-    * set processing flags on read document
-    * @param id String
-    * @param v BsonValue (null/boolean
-    * @return
-    */
-  def setFlag(id: String, v: BsonValue): Future[Option[UpdateResult]] = {
-    collection.updateOne(
-      equal("_id", new ObjectId(id)),
-      set(config.getString("doclib.flag"), v)
-    ).toFutureOption()
-  }
-
-
-  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] =
-    (for {
-      doc ← OptionT(fetch(msg.id))
-      if doc.contains("source")
-      _ ← OptionT(setFlag(msg.id, BsonNull()))
-      newFilePath ← OptionT(extractRawText(doc.getString("source")))
-      persisted ← OptionT(persist(doc, newFilePath))
-      _ ← OptionT(enqueue(newFilePath, doc))
-    } yield (newFilePath, persisted)).value.andThen({
-      case Success(result) ⇒ result match {
-        case Some(r) ⇒
-          logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
-        case None ⇒ setFlag(msg.id, BsonBoolean(false)).andThen({
-          case Failure(err) ⇒ throw err
-          case _ ⇒ logger.debug(f"DROPPING MESSAGE: ${msg.id}")
-        })
-      }
-      case Failure(err) ⇒ throw err
-
-    })
 
 }
