@@ -1,3 +1,6 @@
+import sbtrelease.ReleaseStateTransformations._
+import Release._
+
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.5.25"
 lazy val catsVersion = "2.0.0"
@@ -5,17 +8,19 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.21"
-lazy val doclibCommonVersion = "0.0.17"
+lazy val doclibCommonVersion = "0.0.23"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
-lazy val root = (project in file(".")).
-  settings(
+lazy val root = (project in file("."))
+  .settings(
     name              := "consumer-raw-text",
-    version           := "0.2",
     scalaVersion      := "2.12.8",
     scalacOptions     += "-Ypartial-unification",
-    resolvers         ++= Seq("MDC Nexus" at "http://nexus.mdcatapult.io/repository/maven-releases/"),
+    resolvers         ++= Seq(
+      "MDC Nexus Public" at "https://nexus.mdcatapult.io/repository/maven-public/",
+      "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",
+      "Maven Public" at "https://repo1.maven.org/maven2"),
     credentials       += {
       val nexusPassword = sys.env.get("NEXUS_PASSWORD")
       if ( nexusPassword.nonEmpty ) {
@@ -37,7 +42,11 @@ lazy val root = (project in file(".")).
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
       "commons-io" % "commons-io"                     % "2.6"
     ),
-    assemblyJarName := "consumer-raw-text.jar",
+
+  )
+  .settings(
+    assemblyJarName := "consumer.jar",
+    test in assembly := {},
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
@@ -60,4 +69,22 @@ lazy val root = (project in file(".")).
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     }
+  )
+  .settings(
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      runTest,
+      setReleaseVersion,
+      getShortSha,
+      writeReleaseVersionFile,
+      commitAllRelease,
+      tagRelease,
+      runAssembly,
+      setNextVersion,
+      writeNextVersionFile,
+      commitAllNext,
+      pushChanges
+    )
   )
