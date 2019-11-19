@@ -25,6 +25,7 @@ object ConsumerRawText extends AbstractConsumer("consumer-unarchive") {
     /** initialise queues **/
     val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
     val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"))
-    upstream.subscribe(new RawTextHandler(downstream).handle, config.getInt("upstream.concurrent"))
+    val supervisor: Queue[SupervisorMsg] = new Queue[SupervisorMsg](config.getString("doclib.supervisor.queue"), Some("unarchiver"))
+    upstream.subscribe(new RawTextHandler(downstream, supervisor).handle, config.getInt("upstream.concurrent"))
   }
 }

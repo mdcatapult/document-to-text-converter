@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success, Try}
 
 
-class RawTextHandler(prefetch: Sendable[PrefetchMsg])
+class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[SupervisorMsg])
                     (implicit ac: ActorSystem,
                      ex: ExecutionContextExecutor,
                      config: Config,
@@ -39,10 +39,13 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg])
       persisted ← OptionT(persist(doc, newFilePath))
       _ ← OptionT(enqueue(newFilePath, doc))
       _ ← OptionT(flags.end(doc, started.getModifiedCount > 0))
-    } yield (newFilePath, persisted)).value.andThen({
+    } yield (newFilePath, persisted, doc)).value.andThen({
 
       case Success(result) ⇒ result match {
-        case Some(r) ⇒ logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
+        case Some(r) ⇒ {
+          supervisor.send(SupervisorMsg(id = r._3._id.toHexString))
+          logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
+        }
         case None ⇒ logger.info(f"${msg.id} - no document found")
       }
       case Failure(err) ⇒ OptionT(fetch(msg.id)).value.andThen({
