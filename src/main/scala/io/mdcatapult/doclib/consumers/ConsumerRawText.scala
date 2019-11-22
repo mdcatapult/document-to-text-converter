@@ -23,8 +23,8 @@ object ConsumerRawText extends AbstractConsumer("consumer-unarchive") {
     implicit val collection: MongoCollection[DoclibDoc] = mongo.database.getCollection(config.getString("mongo.collection"))
 
     /** initialise queues **/
-    val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"))
-    val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"))
+    val downstream: Queue[PrefetchMsg] = new Queue[PrefetchMsg](config.getString("downstream.queue"), Some("rawtext"))
+    val upstream: Queue[DoclibMsg] = new Queue[DoclibMsg](config.getString("upstream.queue"), Some("rawtext"))
     upstream.subscribe(new RawTextHandler(downstream).handle, config.getInt("upstream.concurrent"))
   }
 }
