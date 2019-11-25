@@ -30,7 +30,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
 
   lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
 
-  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] =
+  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
+    logger.info(f"RECEIVED: ${msg.id}")
     (for {
       doc ← OptionT(fetch(msg.id))
       started: UpdateResult ← OptionT(flags.start(doc))
@@ -55,6 +56,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
         }
       })
     })
+  }
 
   def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {
     // Let prefetch know that it is an rawtext derivative
