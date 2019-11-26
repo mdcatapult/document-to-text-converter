@@ -127,6 +127,13 @@ class RawTextSpec extends FlatSpec with BeforeAndAfterAll with DirectoryDelete {
     assert(path == "ingress/derivatives/remote/http/a/path/raw_text-test_doc.doc/raw.txt")
   }
 
+  "A derivative of a derivative file" should "be extracted to the correct doclib folders" in {
+    val source = "local/derivatives/derivatives/remote/http/a/path/test_doc.doc"
+    val rawText = new RawText(source)
+    val path = rawText.targetPath
+    assert(path == "ingress/derivatives/remote/http/a/path/raw_text-test_doc.doc")
+  }
+
   override def afterAll(): Unit = {
     deleteDirectories(List((pwd/"test"/"ingress")))
   }
