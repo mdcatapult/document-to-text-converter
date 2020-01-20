@@ -8,7 +8,7 @@ lazy val opRabbitVersion = "2.1.0"
 lazy val mongoVersion = "2.5.0"
 lazy val awsScalaVersion = "0.8.1"
 lazy val tikaVersion = "1.21"
-lazy val doclibCommonVersion = "0.0.23"
+lazy val doclibCommonVersion = "0.0.34"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
