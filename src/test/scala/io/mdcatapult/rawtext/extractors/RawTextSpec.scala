@@ -3,14 +3,15 @@ package io.mdcatapult.rawtext.extractors
 import java.nio.file.Paths
 
 import better.files.Dsl.pwd
-import better.files.{File ⇒ ScalaFile}
+import better.files.{File => ScalaFile}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.mdcatapult.doclib.util.DirectoryDelete
 import org.apache.commons.io.FilenameUtils
-import org.scalatest.{BeforeAndAfterAll, FlatSpec}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.BeforeAndAfterAll
 
 
-class RawTextSpec extends FlatSpec with BeforeAndAfterAll with DirectoryDelete {
+class RawTextSpec extends AnyFlatSpec with BeforeAndAfterAll with DirectoryDelete {
 
   implicit val config: Config = ConfigFactory.parseString(
     """
@@ -135,6 +136,6 @@ class RawTextSpec extends FlatSpec with BeforeAndAfterAll with DirectoryDelete {
   }
 
   override def afterAll(): Unit = {
-    deleteDirectories(List((pwd/"test"/"ingress")))
+    deleteDirectories(List(pwd/"test"/"ingress"))
   }
 }

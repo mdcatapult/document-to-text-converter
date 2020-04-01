@@ -42,20 +42,20 @@ class RawText(source: String)(implicit config: Config) {
     val targetRoot = base.replaceAll("/+$", "")
     val regex = """(.*)/(.*)$""".r
     source match {
-      case regex(path, file) ⇒
+      case regex(path, file) =>
         val c = commonPath(List(targetRoot, path))
         val targetPath  = scrub(path.replaceAll(s"^$c", "").replaceAll("^/+|/+$", ""))
         Paths.get(config.getString("doclib.local.temp-dir"), targetRoot, targetPath, s"${prefix.getOrElse("")}-$file").toString
-      case _ ⇒ source
+      case _ => source
     }
   }
 
   def scrub(path: String):String  = path match {
-    case path if path.startsWith(config.getString("doclib.local.target-dir")) ⇒
+    case path if path.startsWith(config.getString("doclib.local.target-dir")) =>
       scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
-    case path if path.startsWith(config.getString("rawtext.to.path"))  ⇒
+    case path if path.startsWith(config.getString("rawtext.to.path"))  =>
       scrub(path.replaceFirst(s"^${config.getString("rawtext.to.path")}/*", ""))
-    case _ ⇒ path
+    case _ => path
   }
 
   /**
