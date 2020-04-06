@@ -6,7 +6,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, Origin}
+import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
@@ -25,12 +25,17 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
                      collection: MongoCollection[DoclibDoc]
                     ) extends LazyLogging {
 
-  lazy val flags = new DoclibFlags(config.getString("doclib.flag"))
+  private val docExtractor = DoclibDocExtractor()
+
+  private val flagKey = config.getString("doclib.flag")
+
+  private lazy val flags = new DoclibFlags(flagKey)
 
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
     (for {
       doc <- OptionT(fetch(msg.id))
+      if !docExtractor.isRunRecently(doc)
       started: UpdateResult <- OptionT(flags.start(doc))
       // TODO - validate mimetype here??
       newFilePath <- OptionT(extractRawText(doc.source))
@@ -74,12 +79,10 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     Future.successful(Some(true))
   }
 
-
-  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[UpdateResult]] = {
+  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[UpdateResult]] =
     collection.updateOne(equal("_id", doc._id),
       addToSet("derivatives", Derivative("rawtext", newFilePath)),
     ).toFutureOption()
-  }
 
   def extractRawText(source: String): Future[Option[String]] =
     Try(new RawText(source).extract) match {

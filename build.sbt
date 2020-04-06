@@ -5,7 +5,7 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val awsScalaVersion = "0.8.4"
-lazy val doclibCommonVersion = "0.0.56"
+lazy val doclibCommonVersion = "0.0.58"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -22,6 +22,7 @@ lazy val root = (project in file("."))
       "-Xlint",
       "-Xfatal-warnings",
     ),
+    useCoursier := false,
     resolvers         ++= Seq(
       "MDC Nexus Public" at "https://nexus.mdcatapult.io/repository/maven-public/",
       "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",
