@@ -80,7 +80,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
   }
 
   def persist(doc: DoclibDoc, newFilePath: String): Future[Option[UpdateResult]] =
-    collection.updateOne(equal("_id", doc._id),
+    collection.updateOne(
+      equal("_id", doc._id),
       addToSet("derivatives", Derivative("rawtext", newFilePath)),
     ).toFutureOption()
 

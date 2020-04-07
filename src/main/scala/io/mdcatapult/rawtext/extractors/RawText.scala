@@ -11,7 +11,7 @@ class RawText(source: String)(implicit config: Config) {
 
   // set the target path using the source parent directory path and the configured `to` path
   lazy val targetPath: String = getTargetPath(source, config.getString("rawtext.to.path"), Some("raw_text"))
-  val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
+  private val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
 
   def getAbsPath(path: String): String = {
     Paths.get(doclibRoot, path).toAbsolutePath.toString
