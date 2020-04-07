@@ -39,14 +39,14 @@ class RawTextSpec extends AnyFlatSpec with BeforeAndAfterAll with DirectoryDelet
   def getPath(parentDir: String, file: String): String = Paths.get(parentDir, file).toString
 
   val docFiles: List[(String, String)] = List[(String, String)](
-    ("test_doc.doc", "test_doc.txt"),
-    ("test_docx.docx", "test_docx.txt"),
-    ("test_office_open_docx.docx", "test_office_open_docx.txt"),
-    ("test_odt.odt", "test_odt.txt"),
-    ("test_ods.ods", "test_ods.txt"),
-    ("test_xls.xls", "test_xls.txt"),
-    ("test_xlsx.xlsx", "test_xlsx.txt"),
-    ("test_office_open_xlsx.xlsx", "test_office_open_xlsx.txt"),
+    "test_doc.doc" -> "test_doc.txt",
+    "test_docx.docx" -> "test_docx.txt",
+    "test_office_open_docx.docx" -> "test_office_open_docx.txt",
+    "test_odt.odt" -> "test_odt.txt",
+    "test_ods.ods" -> "test_ods.txt",
+    "test_xls.xls" -> "test_xls.txt",
+    "test_xlsx.xlsx" -> "test_xlsx.txt",
+    "test_office_open_xlsx.xlsx" -> "test_office_open_xlsx.txt",
   )
 
   docFiles foreach {file: (String, String) => {

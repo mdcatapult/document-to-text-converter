@@ -20,7 +20,8 @@ object ConsumerRawText extends AbstractConsumer("consumer-unarchive") {
   override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
     import as.dispatcher
 
-    implicit val collection: MongoCollection[DoclibDoc] = mongo.database.getCollection(config.getString("mongo.collection"))
+    implicit val collection: MongoCollection[DoclibDoc] =
+      mongo.database.getCollection(config.getString("mongo.collection"))
 
     def queue[T <: Envelope](property: String)(implicit f: Format[T]): Queue[T] =
       new Queue[T](config.getString(property), consumerName = Some("rawtext"))
