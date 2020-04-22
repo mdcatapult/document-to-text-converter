@@ -1,20 +1,21 @@
 package io.mdcatapult.doclib.handlers
 
+import java.util.UUID
+
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{Derivative, DoclibDoc, DoclibDocExtractor, Origin}
+import io.mdcatapult.doclib.models.{DoclibDoc, DoclibDocExtractor, Origin, ParentChildMapping}
 import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
 import org.bson.types.ObjectId
-import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.model.Updates._
 import org.mongodb.scala.result.UpdateResult
+import org.mongodb.scala.{Completed, MongoCollection}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -22,7 +23,8 @@ import scala.util.{Failure, Success, Try}
 class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[SupervisorMsg])
                     (implicit ex: ExecutionContext,
                      config: Config,
-                     collection: MongoCollection[DoclibDoc]
+                     collection: MongoCollection[DoclibDoc],
+                     derviativesCollection: MongoCollection[ParentChildMapping]
                     ) extends LazyLogging {
 
   private val docExtractor = DoclibDocExtractor()
@@ -79,11 +81,9 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     Future.successful(Some(true))
   }
 
-  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[UpdateResult]] =
-    collection.updateOne(
-      equal("_id", doc._id),
-      addToSet("derivatives", Derivative("rawtext", newFilePath)),
-    ).toFutureOption()
+  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[Completed]] = {
+    derviativesCollection.insertMany(createDerivativesFromPaths(doc, List(newFilePath))).toFutureOption()
+  }
 
   def extractRawText(source: String): Future[Option[String]] =
     Try(new RawText(source).extract) match {
@@ -93,5 +93,15 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
 
   def fetch(id: String): Future[Option[DoclibDoc]] =
     collection.find(equal("_id", new ObjectId(id))).first().toFutureOption()
+
+  /**
+    * Create list of parent child mappings
+    * @param doc DoclibDoc
+    * @param paths List[String]
+    * @return List[Derivative] unique list of derivatives
+    */
+  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
+  //TODO This same pattern is used in other consumers so maybe we can move to a shared lib in common or a shared consumer lib.
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID, childPath = d, parent = doc._id, consumer = Some("rawtext_conversion")))
 
 }
