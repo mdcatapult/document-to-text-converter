@@ -24,7 +24,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
                     (implicit ex: ExecutionContext,
                      config: Config,
                      collection: MongoCollection[DoclibDoc],
-                     derviativesCollection: MongoCollection[ParentChildMapping]
+                     derivativesCollection: MongoCollection[ParentChildMapping]
                     ) extends LazyLogging {
 
   private val docExtractor = DoclibDocExtractor()
@@ -81,8 +81,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     Future.successful(Some(true))
   }
 
-  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[Completed]] = 
-    derviativesCollection.insertMany(createDerivativesFromPaths(doc, List(newFilePath))).toFutureOption()
+  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[Completed]] =
+    derivativesCollection.insertMany(createDerivativesFromPaths(doc, List(newFilePath))).toFutureOption()
 
   def extractRawText(source: String): Future[Option[String]] =
     Try(new RawText(source).extract) match {
