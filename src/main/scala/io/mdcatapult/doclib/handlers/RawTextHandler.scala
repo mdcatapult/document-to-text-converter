@@ -81,9 +81,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     Future.successful(Some(true))
   }
 
-  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[Completed]] = {
+  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[Completed]] = 
     derviativesCollection.insertMany(createDerivativesFromPaths(doc, List(newFilePath))).toFutureOption()
-  }
 
   def extractRawText(source: String): Future[Option[String]] =
     Try(new RawText(source).extract) match {
