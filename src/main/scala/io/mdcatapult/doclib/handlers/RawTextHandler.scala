@@ -13,9 +13,9 @@ import io.mdcatapult.doclib.util.DoclibFlags
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
 import org.bson.types.ObjectId
+import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.result.UpdateResult
-import org.mongodb.scala.{Completed, MongoCollection}
+import org.mongodb.scala.result.{InsertManyResult, UpdateResult}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -33,6 +33,12 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
 
   private lazy val flags = new DoclibFlags(flagKey)
 
+  /**
+    * handler of raw text
+    * @param msg IncomingMsg to process
+    * @param key routing key from rabbitmq
+    * @return
+    */
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
     (for {
@@ -81,7 +87,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     Future.successful(Some(true))
   }
 
-  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[Completed]] =
+  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[InsertManyResult]] =
     derivativesCollection.insertMany(createDerivativesFromPaths(doc, List(newFilePath))).toFutureOption()
 
   def extractRawText(source: String): Future[Option[String]] =
