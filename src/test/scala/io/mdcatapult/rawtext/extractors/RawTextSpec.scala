@@ -10,7 +10,6 @@ import org.apache.commons.io.FilenameUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.BeforeAndAfterAll
 
-
 class RawTextSpec extends AnyFlatSpec with BeforeAndAfterAll with DirectoryDelete {
 
   implicit val config: Config = ConfigFactory.parseString(
@@ -53,18 +52,19 @@ class RawTextSpec extends AnyFlatSpec with BeforeAndAfterAll with DirectoryDelet
 
     f"The local file ${file._1}" should f"generate a raw text file called ${file._2}" in {
       val result = new RawText(getPath(config.getString("doclib.local.target-dir"), file._1)).getRawTextFilePath
-      val txtName = ScalaFile(file._1).nameWithoutExtension.toString + ".txt"
+      val txtName = ScalaFile(file._1).nameWithoutExtension + ".txt"
+
       assert(result == s"test/ingress/derivatives/raw_text-${file._1}/$txtName")
       assert(FilenameUtils.getName(result) == file._2)
     }
 
     f"The remote file ${file._1}" should "have the correct target path generated" in {
       val result = new RawText(getPath(config.getString("doclib.remote.target-dir"), file._1)).getRawTextFilePath
-      val txtName = ScalaFile(file._1).nameWithoutExtension.toString + ".txt"
+      val txtName = ScalaFile(file._1).nameWithoutExtension + ".txt"
+
       assert(result == s"test/ingress/derivatives/remote/raw_text-${file._1}/$txtName")
       assert(FilenameUtils.getName(result) == file._2)
     }
-
 
     // TODO - finish tests to check contents of extracted test files
 //    it should "extract successfully " in {

@@ -20,7 +20,7 @@ cache:
 
 before_script:
   - apt-get update -yqq
-  - apt-get install -yqq apt-transport-https ca-certificates
+  - apt-get install -yqq apt-transport-https ca-certificates gnupg
   - echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
   - apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
   - apt-get update -yqq
@@ -30,7 +30,7 @@ before_script:
 
 test:
   stage: test
-  image: openjdk:11
+  image: openjdk:14-slim
   script:
     - sbt clean coverage test coverageReport
   artifacts:
@@ -43,7 +43,7 @@ test:
 
 assemble:
   stage: build
-  image: openjdk:11
+  image: openjdk:14-slim
   script:
     - sbt assembly
   artifacts:
@@ -58,7 +58,7 @@ assemble:
 
 publish:
   stage: publish
-  image: docker:latest
+  image: docker:dind
   dependencies:
     - assemble
   before_script:
@@ -79,10 +79,10 @@ publish:
 
 release:
   stage: build
-  image: openjdk:11
+  image: openjdk:14-slim
   before_script:
     - apt-get update -yqq
-    - apt-get install -yqq apt-transport-https ca-certificates
+    - apt-get install -yqq apt-transport-https ca-certificates gnupg curl
     - echo "deb https://dl.bintray.com/sbt/debian /" | tee -a /etc/apt/sources.list.d/sbt.list
     - apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2DF73499E82A75642AC823
     - apt-get update -yqq
@@ -122,13 +122,15 @@ release:
 
 publish-master:
   stage: publish
-  image: docker:latest
+  image: docker:dind
   dependencies:
     - release
   before_script:
     - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
     - apk add --no-cache bash git openssh-client
     - git fetch
+    - git checkout master
+    - git pull origin master
     - export RELEASE_TAG=$(git describe --abbrev=0)
   script:
     - >
