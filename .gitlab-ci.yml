@@ -35,6 +35,8 @@ test:
 
 assemble:
   stage: build
+  tags:
+    - wopr
   script:
     - sbt assembly
   artifacts:
