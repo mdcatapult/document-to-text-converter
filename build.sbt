@@ -11,7 +11,7 @@ val meta = """META.INF/(blueprint|cxf).*""".r
 lazy val root = (project in file("."))
   .settings(
     name              := "consumer-raw-text",
-    scalaVersion      := "2.13.1",
+    scalaVersion      := "2.13.3",
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
       "-unchecked",
