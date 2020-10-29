@@ -4,7 +4,7 @@ import java.io._
 import java.nio.file.Paths
 
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.loader.SourceLoader
+import io.mdcatapult.source.{Source, SourceReader}
 import org.apache.commons.io.FilenameUtils
 
 class RawText(source: String)(implicit config: Config) {
@@ -83,7 +83,8 @@ class RawText(source: String)(implicit config: Config) {
     val target = new File(getAbsPath(relPath))
     target.getParentFile.mkdirs()
     val bw = new BufferedWriter(new FileWriter(target))
-    bw.write(SourceLoader.load(sourcePath.toString).mkString("\n"))
+    val src = Source.fromFile(sourcePath.toFile)
+    bw.write(SourceReader().read(src).mkString("\n"))
     bw.close()
     relPath
   }

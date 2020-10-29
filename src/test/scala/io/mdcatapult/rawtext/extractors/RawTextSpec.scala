@@ -5,12 +5,12 @@ import java.nio.file.Paths
 import better.files.Dsl.pwd
 import better.files.{File => ScalaFile}
 import com.typesafe.config.{Config, ConfigFactory}
-import io.mdcatapult.doclib.util.DirectoryDelete
+import io.mdcatapult.util.path.DirectoryDeleter.deleteDirectories
 import org.apache.commons.io.FilenameUtils
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.BeforeAndAfterAll
 
-class RawTextSpec extends AnyFlatSpec with BeforeAndAfterAll with DirectoryDelete {
+class RawTextSpec extends AnyFlatSpec with BeforeAndAfterAll {
 
   implicit val config: Config = ConfigFactory.parseString(
     """
