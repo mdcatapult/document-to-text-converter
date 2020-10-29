@@ -60,13 +60,13 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
         case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._3._id.toHexString))
           logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
-          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success")
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
         case None =>
           logger.info(f"${msg.id} - no document found")
-          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "error_no_document")
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "error_no_document").inc()
       }
       case Failure(_) =>
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error")
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
         OptionT(fetch(msg.id)).value.andThen({
         case Success(result) => result match {
           case Some(foundDoc) => flagContext.error(foundDoc, noCheck = true)
