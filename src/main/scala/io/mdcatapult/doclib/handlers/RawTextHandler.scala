@@ -6,6 +6,7 @@ import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.ConsumerName
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{DoclibDoc, DoclibDocExtractor, Origin, ParentChildMapping}
@@ -13,6 +14,7 @@ import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
 import io.mdcatapult.util.time.nowUtc
+import io.mdcatapult.doclib.metrics.Metrics.handlerCount
 import io.mdcatapult.util.models.Version
 import io.mdcatapult.util.models.result.UpdatedResult
 import org.bson.types.ObjectId
@@ -58,9 +60,14 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
         case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._3._id.toHexString))
           logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
-        case None => logger.info(f"${msg.id} - no document found")
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
+        case None =>
+          logger.info(f"${msg.id} - no document found")
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "error_no_document").inc()
       }
-      case Failure(_) => OptionT(fetch(msg.id)).value.andThen({
+      case Failure(_) =>
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
+        OptionT(fetch(msg.id)).value.andThen({
         case Success(result) => result match {
           case Some(foundDoc) => flagContext.error(foundDoc, noCheck = true)
           case None => () //Do nothing. The error is bubbling up. There is no mongo doc to set flags on
