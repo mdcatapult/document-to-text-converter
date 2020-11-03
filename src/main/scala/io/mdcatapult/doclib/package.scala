@@ -1,5 +1,5 @@
 package io.mdcatapult
 
 package object doclib {
-  val ConsumerName = "consumer-unarchive"
+  val ConsumerName = "consumer-rawtext"
 }
