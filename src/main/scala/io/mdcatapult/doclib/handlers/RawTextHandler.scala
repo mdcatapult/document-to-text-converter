@@ -6,16 +6,21 @@ import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
+import io.mdcatapult.doclib.ConsumerName
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{DoclibDoc, DoclibDocExtractor, Origin, ParentChildMapping}
-import io.mdcatapult.doclib.util.DoclibFlags
+import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
+import io.mdcatapult.util.time.nowUtc
+import io.mdcatapult.doclib.metrics.Metrics.handlerCount
+import io.mdcatapult.util.models.Version
+import io.mdcatapult.util.models.result.UpdatedResult
 import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.model.Filters.equal
-import org.mongodb.scala.result.{InsertManyResult, UpdateResult}
+import org.mongodb.scala.result.InsertManyResult
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -28,10 +33,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
                     ) extends LazyLogging {
 
   private val docExtractor = DoclibDocExtractor()
-
-  private val flagKey = config.getString("doclib.flag")
-
-  private lazy val flags = new DoclibFlags(flagKey)
+  private val version = Version.fromConfig(config)
+  private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
 
   /**
     * handler of raw text
@@ -41,26 +44,32 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     */
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
+    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
     (for {
       doc <- OptionT(fetch(msg.id))
       if !docExtractor.isRunRecently(doc)
-      started: UpdateResult <- OptionT(flags.start(doc))
+      started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
       // TODO - validate mimetype here??
       newFilePath <- OptionT(extractRawText(doc.source))
       persisted <- OptionT(persist(doc, newFilePath))
       _ <- OptionT(enqueue(newFilePath, doc))
-      _ <- OptionT(flags.end(doc, noCheck = started.getModifiedCount > 0))
+      _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
     } yield (newFilePath, persisted, doc)).value.andThen({
 
       case Success(result) => result match {
         case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._3._id.toHexString))
           logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
-        case None => logger.info(f"${msg.id} - no document found")
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
+        case None =>
+          logger.info(f"${msg.id} - no document found")
+          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "error_no_document").inc()
       }
-      case Failure(_) => OptionT(fetch(msg.id)).value.andThen({
+      case Failure(_) =>
+        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
+        OptionT(fetch(msg.id)).value.andThen({
         case Success(result) => result match {
-          case Some(foundDoc) => flags.error(foundDoc, noCheck = true)
+          case Some(foundDoc) => flagContext.error(foundDoc, noCheck = true)
           case None => () //Do nothing. The error is bubbling up. There is no mongo doc to set flags on
         }
       })
@@ -72,7 +81,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "rawtext"))
     prefetch.send(PrefetchMsg(
       source = newFilePath,
-      origin = Some(List(Origin(
+      origins = Some(List(Origin(
         scheme = "mongodb",
         metadata = Some(List(
           MetaString("db", config.getString("mongo.database")),

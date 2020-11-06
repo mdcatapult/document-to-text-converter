@@ -4,14 +4,15 @@ import Release._
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
-lazy val doclibCommonVersion = "0.0.71"
+lazy val doclibCommonVersion = "1.1.2"
+lazy val kleinSourceVersion = "1.0.0"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
 lazy val root = (project in file("."))
   .settings(
     name              := "consumer-raw-text",
-    scalaVersion      := "2.13.1",
+    scalaVersion      := "2.13.3",
     scalacOptions ++= Seq(
       "-encoding", "utf-8",
       "-unchecked",
@@ -45,6 +46,7 @@ lazy val root = (project in file("."))
       "org.typelevel" %% "cats-kernel"                % catsVersion,
       "org.typelevel" %% "cats-core"                  % catsVersion,
       "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
+      "io.mdcatapult.klein" %% "source"               % kleinSourceVersion,
       "com.github.jai-imageio" % "jai-imageio-jpeg2000" % "1.3.0",
       "org.xerial" % "sqlite-jdbc"                      % "3.30.1"
     ).map(
@@ -72,6 +74,7 @@ lazy val root = (project in file("."))
       case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.concat
       case n if n.endsWith(".conf") => MergeStrategy.concat
+      case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
