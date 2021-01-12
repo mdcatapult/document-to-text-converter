@@ -61,25 +61,38 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
         case Some(r) =>
           supervisor.send(SupervisorMsg(id = r._3._id.toHexString))
           logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
-          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "success").inc()
+          incrementHandlerCount("success")
         case None =>
           logger.info(f"${msg.id} - no document found")
-          handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "error_no_document").inc()
+          incrementHandlerCount("error_no_document")
       }
       case Failure(e) =>
         logger.error("error during handle process", e)
-        handlerCount.labels(ConsumerName, config.getString("upstream.queue"), "unknown_error").inc()
+        incrementHandlerCount("unknown_error")
 
-        fetch(msg.id).map {
-          case Some(foundDoc) =>
-            flagContext.error(foundDoc, noCheck = true).andThen {
-              case Failure(e) => logger.error("error attempting error flag write", e)
-            }
-          case None =>
-            val message = s"could not find ${msg.id}"
-            logger.error(message, new Exception(message))
+        fetch(msg.id).onComplete {
+          case Failure(e) =>
+            logger.error(s"error retrieving document", e)
+            incrementHandlerCount( "error_retrieving_document")
+          case Success(value) => value match {
+            case Some(foundDoc) =>
+              flagContext.error(foundDoc, noCheck = true).andThen {
+                case Failure(e) =>
+                  incrementHandlerCount("error_attempting_error_flag_write")
+                  logger.error("error attempting error flag write", e)
+              }
+            case None =>
+              val message = f"${msg.id} - no document found"
+              logger.error(message, new Exception(message))
+              incrementHandlerCount("error_no_document")
+          }
         }
     }
+  }
+
+  private def incrementHandlerCount(labels: String*): Unit = {
+    val labelsWithDefaults = Seq(ConsumerName, config.getString("upstream.queue")) ++ labels
+    handlerCount.labels(labelsWithDefaults: _*).inc()
   }
 
   def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {
