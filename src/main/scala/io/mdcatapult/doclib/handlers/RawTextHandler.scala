@@ -71,20 +71,15 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
         incrementHandlerCount("unknown_error")
 
         fetch(msg.id).onComplete {
-          case Failure(e) =>
-            logger.error(s"error retrieving document", e)
-            incrementHandlerCount( "error_retrieving_document")
-          case Success(value) => value match {
+          case Failure(e) => logger.error(s"error retrieving document", e)
+          case Success(doclibDocOption) => doclibDocOption match {
             case Some(foundDoc) =>
               flagContext.error(foundDoc, noCheck = true).andThen {
-                case Failure(e) =>
-                  incrementHandlerCount("error_attempting_error_flag_write")
-                  logger.error("error attempting error flag write", e)
+                case Failure(e) => logger.error("error attempting error flag write", e)
               }
             case None =>
               val message = f"${msg.id} - no document found"
               logger.error(message, new Exception(message))
-              incrementHandlerCount("error_no_document")
           }
         }
     }
