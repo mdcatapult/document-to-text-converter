@@ -17,7 +17,7 @@ cache:
     - "sbt-cache/target"
 
 default:
-  image: registry.mdcatapult.io/informatics/docker-images/ci:scala-v1.1.1
+  image: registry.mdcatapult.io/informatics/docker-images/ci:scala
 
 test:
   stage: test
@@ -113,10 +113,6 @@ publish-master:
       --build-arg VERSION=$CI_COMMIT_REF_NAME
       --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA
       --destination $CI_REGISTRY_IMAGE
-    - >
-      /kaniko/executor --context $CI_PROJECT_DIR
-      --build-arg VERSION=$CI_COMMIT_REF_NAME
-      --build-arg VERSION_HASH=$CI_COMMIT_SHORT_SHA
       --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_NAME
   only:
     refs:
