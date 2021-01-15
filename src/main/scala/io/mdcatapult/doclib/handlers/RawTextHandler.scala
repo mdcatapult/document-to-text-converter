@@ -127,8 +127,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     * @param paths List[String]
     * @return List[Derivative] unique list of derivatives
     */
-  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
-  //TODO This same pattern is used in other consumers so maybe we can move to a shared lib in common or a shared consumer lib.
-    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Try(config.getString("consumer.name")).toOption))
-
+  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] = {
+    val consumerNameOption = Try(config.getString("consumer.name")).toOption
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = consumerNameOption))
+  }
 }
