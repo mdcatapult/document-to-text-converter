@@ -4,7 +4,6 @@ import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.doclib.ConsumerName
 import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.metrics.Metrics.handlerCount
@@ -86,20 +85,20 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
   }
 
   private def incrementHandlerCount(labels: String*): Unit = {
-    val labelsWithDefaults = Seq(ConsumerName, config.getString("upstream.queue")) ++ labels
+    val labelsWithDefaults = Seq(config.getString("consumer.name"), config.getString("consumer.queue")) ++ labels
     handlerCount.labels(labelsWithDefaults: _*).inc()
   }
 
   def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {
     // Let prefetch know that it is an rawtext derivative
-    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", "rawtext"))
+    val derivativeMetadata = List[MetaValueUntyped](MetaString("derivative.type", config.getString("consumer.name")))
     prefetch.send(PrefetchMsg(
       source = newFilePath,
       origins = Some(List(Origin(
         scheme = "mongodb",
         metadata = Some(List(
-          MetaString("db", config.getString("mongo.database")),
-          MetaString("collection", config.getString("mongo.collection")),
+          MetaString("db", config.getString("mongo.doclib-database")),
+          MetaString("collection", config.getString("mongo.documents-collection")),
           MetaString("_id", doc._id.toHexString),
         )),
       ))),
@@ -128,8 +127,8 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     * @param paths List[String]
     * @return List[Derivative] unique list of derivatives
     */
-  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] =
-  //TODO This same pattern is used in other consumers so maybe we can move to a shared lib in common or a shared consumer lib.
-    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = Some("rawtext")))
-
+  def createDerivativesFromPaths(doc: DoclibDoc, paths: List[String]): List[ParentChildMapping] = {
+    val consumerNameOption = Try(config.getString("consumer.name")).toOption
+    paths.map(d => ParentChildMapping(_id = UUID.randomUUID(), childPath = d, parent = doc._id, consumer = consumerNameOption))
+  }
 }
