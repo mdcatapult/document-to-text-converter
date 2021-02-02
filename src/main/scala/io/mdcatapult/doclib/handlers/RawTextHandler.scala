@@ -42,7 +42,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     */
   def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
     logger.info(f"RECEIVED: ${msg.id}")
-    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("upstream.queue")))
+    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.queue")))
 
     val rawTextProcess = for {
       doc <- OptionT(fetch(msg.id))
