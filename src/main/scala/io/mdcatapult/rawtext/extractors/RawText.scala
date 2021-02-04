@@ -10,7 +10,7 @@ import scala.util.Try
 class RawText(source: String)(implicit config: Config) {
 
   // set the target path using the source parent directory path and the configured `to` path
-  lazy val targetPath: String = getTargetPath(source, config.getString("doclib.derivative.path"), Try(config.getString("consumer.name")).toOption)
+  lazy val targetPath: String = getTargetPath(source, config.getString("doclib.derivative.target-dir"), Try(config.getString("consumer.name")).toOption)
   lazy val relativeFilePath: String = Paths.get(targetPath, "raw.txt").toString
   private val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
 
@@ -54,8 +54,8 @@ class RawText(source: String)(implicit config: Config) {
   def scrub(path: String):String  = path match {
     case path if path.startsWith(config.getString("doclib.local.target-dir")) =>
       scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
-    case path if path.startsWith(config.getString("doclib.derivative.path"))  =>
-      scrub(path.replaceFirst(s"^${config.getString("doclib.derivative.path")}/*", ""))
+    case path if path.startsWith(config.getString("doclib.derivative.target-dir"))  =>
+      scrub(path.replaceFirst(s"^${config.getString("doclib.derivative.target-dir")}/*", ""))
     case _ => path
   }
 
