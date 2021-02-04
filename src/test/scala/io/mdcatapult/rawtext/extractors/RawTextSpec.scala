@@ -27,7 +27,7 @@ class RawTextSpec extends AnyFlatSpec with BeforeAndAfterAll {
       |    target-dir: "archive"
       |  }
       |  derivative {
-      |    path: "derivatives"
+      |    target-dir: "derivatives"
       |  }
       |}
       |consumer {
