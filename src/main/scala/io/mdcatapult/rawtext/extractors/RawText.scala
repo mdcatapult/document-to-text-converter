@@ -5,12 +5,13 @@ import java.nio.file.Paths
 
 import com.typesafe.config.Config
 import io.mdcatapult.source.{Source, SourceReader}
-import org.apache.commons.io.FilenameUtils
+import scala.util.Try
 
 class RawText(source: String)(implicit config: Config) {
 
   // set the target path using the source parent directory path and the configured `to` path
-  lazy val targetPath: String = getTargetPath(source, config.getString("rawtext.to.path"), Some("raw_text"))
+  lazy val targetPath: String = getTargetPath(source, config.getString("doclib.derivative.target-dir"), Try(config.getString("consumer.name")).toOption)
+  lazy val relativeFilePath: String = Paths.get(targetPath, "raw.txt").toString
   private val doclibRoot: String = s"${config.getString("doclib.root").replaceFirst("""/+$""", "")}/"
 
   def getAbsPath(path: String): String = {
@@ -53,23 +54,10 @@ class RawText(source: String)(implicit config: Config) {
   def scrub(path: String):String  = path match {
     case path if path.startsWith(config.getString("doclib.local.target-dir")) =>
       scrub(path.replaceFirst(s"^${config.getString("doclib.local.target-dir")}/*", ""))
-    case path if path.startsWith(config.getString("rawtext.to.path"))  =>
-      scrub(path.replaceFirst(s"^${config.getString("rawtext.to.path")}/*", ""))
+    case path if path.startsWith(config.getString("doclib.derivative.target-dir"))  =>
+      scrub(path.replaceFirst(s"^${config.getString("doclib.derivative.target-dir")}/*", ""))
     case _ => path
   }
-
-  /**
-    * Concatenates the targetPath, source file baseName and `.txt` extension
-    * to give the new raw text file path.
-    *
-    * @return the new raw test filepath as a String
-    */
-  def getRawTextFilePath: String = {
-    //TODO This method may or may not be needed depending on whether we go for raw.txt or filename.txt
-    val baseName = FilenameUtils.getBaseName(source)
-    Paths.get(config.getString("doclib.root"), targetPath, baseName + ".txt").toString
-  }
-
 
   /**
     * Extract the source file to a raw text file.
@@ -77,16 +65,14 @@ class RawText(source: String)(implicit config: Config) {
     * @return the new raw text filepath as a String
     */
   def extract : String = {
-    // TODO Not clear whether file should be 'raw.txt' or 'filename.txt'
-    val relPath = Paths.get(targetPath, "raw.txt").toString
     val sourcePath = Paths.get(getAbsPath(source))
-    val target = new File(getAbsPath(relPath))
+    val target = new File(getAbsPath(relativeFilePath))
     target.getParentFile.mkdirs()
     val bw = new BufferedWriter(new FileWriter(target))
     val src = Source.fromFile(sourcePath.toFile)
     bw.write(SourceReader().read(src).mkString("\n"))
     bw.close()
-    relPath
+    relativeFilePath
   }
 
 }
