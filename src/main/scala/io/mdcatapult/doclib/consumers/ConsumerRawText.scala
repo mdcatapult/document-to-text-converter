@@ -10,6 +10,7 @@ import io.mdcatapult.doclib.models.{DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
 import io.mdcatapult.klein.queue.Queue
 import io.mdcatapult.util.admin.{Server => AdminServer}
+import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
 
 /**
@@ -32,8 +33,10 @@ object ConsumerRawText extends AbstractConsumer {
     val upstream: Queue[DoclibMsg] = queue("consumer.queue")
     val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
 
+    val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
+
     upstream.subscribe(
-      new RawTextHandler(downstream, supervisor).handle,
+      new RawTextHandler(downstream, supervisor, readLimiter).handle,
       config.getInt("consumer.concurrency")
     )
   }
