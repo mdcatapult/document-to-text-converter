@@ -3,14 +3,15 @@ package io.mdcatapult.doclib.handlers
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{ConsumerHandler, GenericHandlerReturn}
-import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
+import io.mdcatapult.doclib.consumer.{ConsumerHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
 import io.mdcatapult.doclib.models.{ConsumerNameAndQueue, DoclibDoc, Origin, ParentChildMapping}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
 import io.mdcatapult.util.concurrency.LimitedExecution
+import io.mdcatapult.util.models.Version
 import io.mdcatapult.util.models.result.UpdatedResult
 import io.mdcatapult.util.time.nowUtc
 import org.mongodb.scala.MongoCollection
@@ -23,15 +24,15 @@ import scala.util.{Failure, Success, Try}
 
 class RawTextHandler(prefetch: Sendable[PrefetchMsg],
                      supervisor: Sendable[SupervisorMsg],
-                     val readLimiter: LimitedExecution)
+                     val readLimiter: LimitedExecution,
+                     val writeLimiter: LimitedExecution)
                     (implicit ex: ExecutionContext,
                      config: Config,
                      collection: MongoCollection[DoclibDoc],
                      derivativesCollection: MongoCollection[ParentChildMapping])
   extends ConsumerHandler[DoclibMsg] {
 
-  private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
-
+  private val version: Version = Version.fromConfig(config)
   private implicit val consumerNameAndQueue: ConsumerNameAndQueue =
     ConsumerNameAndQueue(config.getString("consumer.name"), config.getString("consumer.queue"))
 
@@ -42,28 +43,27 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
     * @param key routing key from rabbitmq
     * @return
     */
-  def handle(msg: DoclibMsg, key: String): Future[Option[GenericHandlerReturn]] = {
+  def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
     logReceived(msg.id)
-
-    val flagContext: FlagContext = flags.findFlagContext(Some(consumerNameAndQueue.name))
+    val flagContext = new MongoFlagContext(consumerNameAndQueue.name, version, collection, nowUtc)
 
     val rawTextProcess = for {
-      doc <- OptionT(findDocById(collection, msg.id, readLimiter))
-      if !docExtractor.isRunRecently(doc)
+      doc <- OptionT(findDocById(collection, msg.id))
+      if flagContext.isRunRecently(doc)
       started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
       // TODO - validate mimetype here??
       newFilePath <- OptionT(extractRawText(doc.source))
       _ <- OptionT(persist(doc, newFilePath))
       _ <- OptionT(enqueue(newFilePath, doc))
       _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
-    } yield GenericHandlerReturn(doc, Some(List(newFilePath)))
+    } yield HandlerResultWithDerivatives(doc, Some(List(newFilePath)))
 
     postHandleProcess(
-      message = msg,
-      handlerReturn = rawTextProcess.value,
-      supervisorQueueOpt = Some(supervisor),
+      messageId = msg.id,
+      handlerResult = rawTextProcess.value,
       flagContext = flagContext,
-      collectionOpt = Some(collection)
+      supervisor,
+      collection
     )
   }
 

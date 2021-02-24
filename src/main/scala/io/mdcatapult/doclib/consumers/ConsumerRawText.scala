@@ -34,9 +34,10 @@ object ConsumerRawText extends AbstractConsumer {
     val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
 
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
+    val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
 
     upstream.subscribe(
-      new RawTextHandler(downstream, supervisor, readLimiter).handle,
+      new RawTextHandler(downstream, supervisor, readLimiter, writeLimiter).handle,
       config.getInt("consumer.concurrency")
     )
   }
