@@ -3,11 +3,11 @@ package io.mdcatapult.doclib.handlers
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{ConsumerHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResultWithDerivatives}
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{ConsumerNameAndQueue, DoclibDoc, Origin, ParentChildMapping}
+import io.mdcatapult.doclib.models.{ConsumerConfig, DoclibDoc, Origin, ParentChildMapping}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
 import io.mdcatapult.util.concurrency.LimitedExecution
@@ -29,23 +29,23 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
                     (implicit ex: ExecutionContext,
                      config: Config,
                      collection: MongoCollection[DoclibDoc],
-                     derivativesCollection: MongoCollection[ParentChildMapping])
-  extends ConsumerHandler[DoclibMsg] {
+                     derivativesCollection: MongoCollection[ParentChildMapping],
+                     consumerConfig: ConsumerConfig)
+  extends AbstractHandler[DoclibMsg] {
 
   private val version: Version = Version.fromConfig(config)
-  private implicit val consumerNameAndQueue: ConsumerNameAndQueue =
-    ConsumerNameAndQueue(config.getString("consumer.name"), config.getString("consumer.queue"))
+
 
   /**
     * handler of raw text
     *
     * @param msg IncomingMsg to process
-    * @param key routing key from rabbitmq
     * @return
     */
-  def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
+  override def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
+
     logReceived(msg.id)
-    val flagContext = new MongoFlagContext(consumerNameAndQueue.name, version, collection, nowUtc)
+    val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
 
     val rawTextProcess = for {
       doc <- OptionT(findDocById(collection, msg.id))
@@ -59,7 +59,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
     } yield HandlerResultWithDerivatives(doc, Some(List(newFilePath)))
 
     postHandleProcess(
-      messageId = msg.id,
+      documentId = msg.id,
       handlerResult = rawTextProcess.value,
       flagContext = flagContext,
       supervisor,
