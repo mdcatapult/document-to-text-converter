@@ -13,6 +13,8 @@ import io.mdcatapult.util.admin.{Server => AdminServer}
 import io.mdcatapult.util.concurrency.SemaphoreLimitedExecution
 import org.mongodb.scala.MongoCollection
 
+import scala.util.Try
+
 /**
   * RabbitMQ Consumer to extract files to raw text
   */
@@ -41,7 +43,7 @@ object ConsumerRawText extends AbstractConsumer {
         config.getString("consumer.name"),
         config.getInt("consumer.concurrency"),
         config.getString("consumer.queue"),
-        config.getString("consumer.exchange")
+        Try(config.getString("consumer.exchange")).toOption
       )
 
     upstream.subscribe(
