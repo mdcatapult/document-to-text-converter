@@ -49,7 +49,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
 
     val rawTextProcess = for {
       doc <- OptionT(findDocById(collection, msg.id))
-      if flagContext.isRunRecently(doc)
+      if !flagContext.isRunRecently(doc)
       started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
       // TODO - validate mimetype here??
       newFilePath <- OptionT(extractRawText(doc.source))
