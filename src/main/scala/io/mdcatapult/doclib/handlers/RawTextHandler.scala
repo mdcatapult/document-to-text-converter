@@ -3,7 +3,7 @@ package io.mdcatapult.doclib.handlers
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResultWithDerivatives}
+import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
@@ -22,6 +22,10 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 
+case class RawTextHandlerResult(doclibDoc: DoclibDoc,
+                                persisted: InsertManyResult,
+                                newFilePath: String) extends HandlerResult
+
 class RawTextHandler(prefetch: Sendable[PrefetchMsg],
                      supervisor: Sendable[SupervisorMsg],
                      val readLimiter: LimitedExecution,
@@ -35,14 +39,13 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
 
   private val version: Version = Version.fromConfig(config)
 
-
   /**
     * handler of raw text
     *
     * @param msg IncomingMsg to process
     * @return
     */
-  override def handle(msg: DoclibMsg): Future[Option[HandlerResultWithDerivatives]] = {
+  override def handle(msg: DoclibMsg): Future[Option[RawTextHandlerResult]] = {
 
     logReceived(msg.id)
     val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
@@ -53,10 +56,10 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
       started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
       // TODO - validate mimetype here??
       newFilePath <- OptionT(extractRawText(doc.source))
-      _ <- OptionT(persist(doc, newFilePath))
+      persisted <- OptionT(persist(doc, newFilePath))
       _ <- OptionT(enqueue(newFilePath, doc))
       _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
-    } yield HandlerResultWithDerivatives(doc, Some(List(newFilePath)))
+    } yield RawTextHandlerResult(doc, persisted, newFilePath)
 
     postHandleProcess(
       documentId = msg.id,
