@@ -7,7 +7,7 @@ import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{ConsumerConfig, DoclibDoc, Origin, ParentChildMapping}
+import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, Origin, ParentChildMapping}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
 import io.mdcatapult.util.concurrency.LimitedExecution
@@ -34,7 +34,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
                      config: Config,
                      collection: MongoCollection[DoclibDoc],
                      derivativesCollection: MongoCollection[ParentChildMapping],
-                     consumerConfig: ConsumerConfig)
+                     appConfig: AppConfig)
   extends AbstractHandler[DoclibMsg] {
 
   private val version: Version = Version.fromConfig(config)
@@ -48,7 +48,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
   override def handle(msg: DoclibMsg): Future[Option[RawTextHandlerResult]] = {
 
     logReceived(msg.id)
-    val flagContext = new MongoFlagContext(consumerConfig.name, version, collection, nowUtc)
+    val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
 
     val rawTextProcess = for {
       doc <- OptionT(findDocById(collection, msg.id))
