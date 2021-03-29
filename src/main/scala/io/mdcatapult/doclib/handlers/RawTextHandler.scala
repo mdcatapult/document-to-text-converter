@@ -3,90 +3,71 @@ package io.mdcatapult.doclib.handlers
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import com.typesafe.scalalogging.LazyLogging
-import io.mdcatapult.doclib.flag.{FlagContext, MongoFlagStore}
+import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
+import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages._
-import io.mdcatapult.doclib.metrics.Metrics.handlerCount
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
-import io.mdcatapult.doclib.models.{DoclibDoc, DoclibDocExtractor, Origin, ParentChildMapping}
+import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, Origin, ParentChildMapping}
 import io.mdcatapult.klein.queue.Sendable
 import io.mdcatapult.rawtext.extractors.RawText
+import io.mdcatapult.util.concurrency.LimitedExecution
 import io.mdcatapult.util.models.Version
 import io.mdcatapult.util.models.result.UpdatedResult
 import io.mdcatapult.util.time.nowUtc
-import org.bson.types.ObjectId
 import org.mongodb.scala.MongoCollection
-import org.mongodb.scala.model.Filters.equal
 import org.mongodb.scala.result.InsertManyResult
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[SupervisorMsg])
+
+case class RawTextHandlerResult(doclibDoc: DoclibDoc,
+                                persisted: InsertManyResult,
+                                newFilePath: String) extends HandlerResult
+
+class RawTextHandler(prefetch: Sendable[PrefetchMsg],
+                     supervisor: Sendable[SupervisorMsg],
+                     val readLimiter: LimitedExecution,
+                     val writeLimiter: LimitedExecution)
                     (implicit ex: ExecutionContext,
                      config: Config,
                      collection: MongoCollection[DoclibDoc],
-                     derivativesCollection: MongoCollection[ParentChildMapping]
-                    ) extends LazyLogging {
+                     derivativesCollection: MongoCollection[ParentChildMapping],
+                     appConfig: AppConfig)
+  extends AbstractHandler[DoclibMsg] {
 
-  private val docExtractor = DoclibDocExtractor()
-  private val version = Version.fromConfig(config)
-  private val flags = new MongoFlagStore(version, docExtractor, collection, nowUtc)
+  private val version: Version = Version.fromConfig(config)
 
   /**
     * handler of raw text
+    *
     * @param msg IncomingMsg to process
-    * @param key routing key from rabbitmq
     * @return
     */
-  def handle(msg: DoclibMsg, key: String): Future[Option[Any]] = {
-    logger.info(f"RECEIVED: ${msg.id}")
-    val flagContext: FlagContext = flags.findFlagContext(Some(config.getString("consumer.queue")))
+  override def handle(msg: DoclibMsg): Future[Option[RawTextHandlerResult]] = {
+
+    logReceived(msg.id)
+    val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
 
     val rawTextProcess = for {
-      doc <- OptionT(fetch(msg.id))
-      if !docExtractor.isRunRecently(doc)
+      doc <- OptionT(findDocById(collection, msg.id))
+      if !flagContext.isRunRecently(doc)
       started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
       // TODO - validate mimetype here??
       newFilePath <- OptionT(extractRawText(doc.source))
       persisted <- OptionT(persist(doc, newFilePath))
       _ <- OptionT(enqueue(newFilePath, doc))
       _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
-    } yield (newFilePath, persisted, doc)
+    } yield RawTextHandlerResult(doc, persisted, newFilePath)
 
-    rawTextProcess.value.andThen {
-      case Success(result) => result match {
-        case Some(r) =>
-          supervisor.send(SupervisorMsg(id = r._3._id.toHexString))
-          logger.info(f"COMPLETE: ${msg.id} - converted to raw text - ${r._1}")
-          incrementHandlerCount("success")
-        case None =>
-          logger.info(f"${msg.id} - no document found")
-          incrementHandlerCount("error_no_document")
-      }
-      case Failure(e) =>
-        logger.error("error during handle process", e)
-        incrementHandlerCount("unknown_error")
-
-        fetch(msg.id).onComplete {
-          case Failure(e) => logger.error(s"error retrieving document", e)
-          case Success(doclibDocOption) => doclibDocOption match {
-            case Some(foundDoc) =>
-              flagContext.error(foundDoc, noCheck = true).andThen {
-                case Failure(e) => logger.error("error attempting error flag write", e)
-              }
-            case None =>
-              val message = f"${msg.id} - no document found"
-              logger.error(message, new Exception(message))
-          }
-        }
-    }
-  }
-
-  private def incrementHandlerCount(labels: String*): Unit = {
-    val labelsWithDefaults = Seq(config.getString("consumer.name"), config.getString("consumer.queue")) ++ labels
-    handlerCount.labels(labelsWithDefaults: _*).inc()
+    postHandleProcess(
+      documentId = msg.id,
+      handlerResult = rawTextProcess.value,
+      flagContext = flagContext,
+      supervisor,
+      collection
+    )
   }
 
   def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {
@@ -109,8 +90,10 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
     Future.successful(Some(true))
   }
 
-  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[InsertManyResult]] =
-    derivativesCollection.insertMany(createDerivativesFromPaths(doc, List(newFilePath))).toFutureOption()
+  def persist(doc: DoclibDoc, newFilePath: String): Future[Option[InsertManyResult]] = {
+    val derivativesFromPaths = createDerivativesFromPaths(doc, List(newFilePath))
+    derivativesCollection.insertMany(derivativesFromPaths).toFutureOption()
+  }
 
   def extractRawText(source: String): Future[Option[String]] =
     Try(new RawText(source).extract) match {
@@ -118,12 +101,10 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg], supervisor: Sendable[Super
       case Failure(e) => throw e
     }
 
-  def fetch(id: String): Future[Option[DoclibDoc]] =
-    collection.find(equal("_id", new ObjectId(id))).first().toFutureOption()
-
   /**
     * Create list of parent child mappings
-    * @param doc DoclibDoc
+    *
+    * @param doc   DoclibDoc
     * @param paths List[String]
     * @return List[Derivative] unique list of derivatives
     */
