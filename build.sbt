@@ -5,7 +5,7 @@ lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
 lazy val doclibCommonVersion = "3.0.2"
-lazy val kleinSourceVersion = "1.0.2"
+lazy val kleinSourceVersion = "1.0.5"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
