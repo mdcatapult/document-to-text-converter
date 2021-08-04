@@ -4,8 +4,8 @@ import Release._
 lazy val configVersion = "1.3.2"
 lazy val akkaVersion = "2.6.4"
 lazy val catsVersion = "2.1.0"
-lazy val doclibCommonVersion = "3.0.0"
-lazy val kleinSourceVersion = "1.0.2"
+lazy val doclibCommonVersion = "3.0.2"
+lazy val kleinSourceVersion = "1.0.5"
 
 val meta = """META.INF/(blueprint|cxf).*""".r
 
@@ -24,13 +24,13 @@ lazy val root = (project in file("."))
     ),
     useCoursier := false,
     resolvers         ++= Seq(
-      "MDC Nexus Public" at "https://nexus.mdcatapult.io/repository/maven-public/",
-      "MDC Nexus Snapshots" at "https://nexus.mdcatapult.io/repository/maven-snapshots/",
+      "MDC Nexus Public" at "https://nexus.wopr.inf.mdc/repository/maven-public/",
+      "MDC Nexus Snapshots" at "https://nexus.wopr.inf.mdc/repository/maven-snapshots/",
       "Maven Public" at "https://repo1.maven.org/maven2"),
     credentials       += {
       sys.env.get("NEXUS_PASSWORD") match {
         case Some(p) =>
-          Credentials("Sonatype Nexus Repository Manager", "nexus.mdcatapult.io", "gitlab", p)
+          Credentials("Sonatype Nexus Repository Manager", "nexus.wopr.inf.mdc", "gitlab", p)
         case None =>
           Credentials(Path.userHome / ".sbt" / ".credentials")
       }
