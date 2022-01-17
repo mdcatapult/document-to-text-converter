@@ -45,3 +45,13 @@ files (default: `/efs/derivatives/rawtext/`)
 the new text file will be created as:
 
 `/doclib/derivatives/rawtext/ebi/supplementary_data/PMC123456/example.doc/raw.txt`
+
+## Dependency Scanning
+
+https://github.com/albuch/sbt-dependency-check
+
+The sbt-dependency-check plugin can be used to create a HTML report under `target/scala-x.x/dependency-check-report.html`
+
+```bash
+sbt dependencyCheck
+```
