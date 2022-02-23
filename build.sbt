@@ -65,11 +65,14 @@ libraryDependencies ++= {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
       case PathList("META-INF", "jpms.args") => MergeStrategy.discard
+      case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
       case PathList("com", "sun", _*) => MergeStrategy.first
       case PathList("javax", "servlet", _*) => MergeStrategy.first
       case PathList("javax", "activation", _*) => MergeStrategy.first
       case PathList("org", "apache", "commons", _*) => MergeStrategy.first
       case PathList("com", "ctc", "wstx", _*) => MergeStrategy.first
+      case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
+      case PathList("scala", "util", "control", "compat", _*) => MergeStrategy.first
       case PathList(xs @ _*) if xs.last endsWith ".DSA" => MergeStrategy.discard
       case PathList(xs @ _*) if xs.last endsWith ".SF" => MergeStrategy.discard
       case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
@@ -77,6 +80,7 @@ libraryDependencies ++= {
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.first
+      case n if n.startsWith("scala-collection-compat.properties") => MergeStrategy.first
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
