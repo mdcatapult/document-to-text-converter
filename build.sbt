@@ -30,7 +30,7 @@ lazy val root = (project in file("."))
       }
     },
 libraryDependencies ++= {
-  val doclibCommonVersion = "3.1.1-SNAPSHOT"
+  val doclibCommonVersion = "3.1.1"
   val kleinSourceVersion = "1.0.6"
 
   val configVersion = "1.4.1"
