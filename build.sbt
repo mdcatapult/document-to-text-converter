@@ -1,12 +1,6 @@
 import sbtrelease.ReleaseStateTransformations._
 import Release._
 
-lazy val configVersion = "1.3.2"
-lazy val akkaVersion = "2.6.4"
-lazy val catsVersion = "2.1.0"
-lazy val doclibCommonVersion = "3.0.2"
-lazy val kleinSourceVersion = "1.0.5"
-
 val meta = """META.INF/(blueprint|cxf).*""".r
 
 lazy val root = (project in file("."))
@@ -35,21 +29,31 @@ lazy val root = (project in file("."))
           Credentials(Path.userHome / ".sbt" / ".credentials")
       }
     },
-    libraryDependencies ++= Seq(
-      "org.scalactic" %% "scalactic"                  % "3.1.1",
-      "org.scalatest" %% "scalatest"                  % "3.1.1" % Test,
-      "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
-      "ch.qos.logback" % "logback-classic"            % "1.2.3",
-      "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2",
-      "com.typesafe" % "config"                       % configVersion,
-      "org.typelevel" %% "cats-macros"                % catsVersion,
-      "org.typelevel" %% "cats-kernel"                % catsVersion,
-      "org.typelevel" %% "cats-core"                  % catsVersion,
-      "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
-      "io.mdcatapult.klein" %% "source"               % kleinSourceVersion,
-      "com.github.jai-imageio" % "jai-imageio-jpeg2000" % "1.3.0",
-      "org.xerial" % "sqlite-jdbc"                      % "3.30.1"
-    ).map(
+libraryDependencies ++= {
+  val doclibCommonVersion = "3.1.1"
+  val kleinSourceVersion = "1.0.6"
+
+  val configVersion = "1.4.1"
+  val akkaVersion = "2.6.18"
+  val catsVersion = "2.6.1"
+  val scalacticVersion = "3.2.10"
+  val scalaTestVersion = "3.2.11"
+  val scalaLoggingVersion = "3.9.4"
+  val logbackClassicVersion = "1.2.10"
+
+  Seq(
+    "org.scalactic" %% "scalactic"                   % scalacticVersion,
+     "org.scalatest" %% "scalatest"                  % scalaTestVersion % Test,
+     "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
+     "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
+     "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
+     "com.typesafe" % "config"                       % configVersion,
+     "org.typelevel" %% "cats-kernel"                % catsVersion,
+     "org.typelevel" %% "cats-core"                  % catsVersion,
+     "io.mdcatapult.doclib" %% "common"              % doclibCommonVersion,
+     "io.mdcatapult.klein" %% "source"               % kleinSourceVersion
+//     "org.xerial" % "sqlite-jdbc"                      % "3.30.1"
+  )}.map(
       _.exclude(org = "com.google.protobuf", name = "protobuf-java")
         .exclude(org = "com.typesafe.play", name = "shaded-asynchttpclient")
     )
@@ -61,11 +65,14 @@ lazy val root = (project in file("."))
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
       case PathList("META-INF", "jpms.args") => MergeStrategy.discard
+      case PathList("META-INF", "io.netty.versions.properties") => MergeStrategy.first
       case PathList("com", "sun", _*) => MergeStrategy.first
       case PathList("javax", "servlet", _*) => MergeStrategy.first
       case PathList("javax", "activation", _*) => MergeStrategy.first
       case PathList("org", "apache", "commons", _*) => MergeStrategy.first
       case PathList("com", "ctc", "wstx", _*) => MergeStrategy.first
+      case PathList("scala", "collection", "compat", _*) => MergeStrategy.first
+      case PathList("scala", "util", "control", "compat", _*) => MergeStrategy.first
       case PathList(xs @ _*) if xs.last endsWith ".DSA" => MergeStrategy.discard
       case PathList(xs @ _*) if xs.last endsWith ".SF" => MergeStrategy.discard
       case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
@@ -73,6 +80,7 @@ lazy val root = (project in file("."))
       case PathList(xs @ _*) if xs.last == "public-suffix-list.txt" => MergeStrategy.first
       case PathList(xs @ _*) if xs.last == ".gitkeep" => MergeStrategy.discard
       case n if n.startsWith("application.conf") => MergeStrategy.first
+      case n if n.startsWith("scala-collection-compat.properties") => MergeStrategy.first
       case n if n.endsWith(".conf") => MergeStrategy.concat
       case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
