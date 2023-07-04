@@ -40,12 +40,14 @@ libraryDependencies ++= {
   val scalaTestVersion = "3.2.15"
   val scalaLoggingVersion = "3.9.5"
   val logbackClassicVersion = "1.4.7"
+  val log4jVersion = "2.20.0"
 
   Seq(
     "org.scalactic" %% "scalactic"                   % scalacticVersion,
      "org.scalatest" %% "scalatest"                  % scalaTestVersion % Test,
      "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
      "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
+     "org.apache.logging.log4j" % "log4j-core"         % log4jVersion,
      "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
      "com.typesafe" % "config"                       % configVersion,
      "org.typelevel" %% "cats-kernel"                % catsVersion,
