@@ -61,7 +61,7 @@ libraryDependencies ++= {
   .settings(
     assemblyJarName := "consumer.jar",
     assembly / test := {},
-    assemblyMergeStrategy in assembly := {
+    assembly / assemblyMergeStrategy := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
       case PathList("META-INF", "jpms.args") => MergeStrategy.discard
@@ -85,7 +85,7 @@ libraryDependencies ++= {
       case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        val oldStrategy = (assembly / assemblyMergeStrategy).value
         oldStrategy(x)
     }
   )
