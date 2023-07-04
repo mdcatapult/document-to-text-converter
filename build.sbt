@@ -30,16 +30,16 @@ lazy val root = (project in file("."))
       }
     },
 libraryDependencies ++= {
-  val doclibCommonVersion = "3.1.1"
+  val doclibCommonVersion = "4.0.0"
   val kleinSourceVersion = "1.0.6"
 
-  val configVersion = "1.4.1"
-  val akkaVersion = "2.6.18"
-  val catsVersion = "2.6.1"
-  val scalacticVersion = "3.2.10"
-  val scalaTestVersion = "3.2.11"
-  val scalaLoggingVersion = "3.9.4"
-  val logbackClassicVersion = "1.2.10"
+  val configVersion = "1.4.2"
+  val akkaVersion = "2.8.0"
+  val catsVersion = "2.9.0"
+  val scalacticVersion = "3.2.15"
+  val scalaTestVersion = "3.2.15"
+  val scalaLoggingVersion = "3.9.5"
+  val logbackClassicVersion = "1.4.7"
 
   Seq(
     "org.scalactic" %% "scalactic"                   % scalacticVersion,
@@ -60,7 +60,7 @@ libraryDependencies ++= {
   )
   .settings(
     assemblyJarName := "consumer.jar",
-    test in assembly := {},
+    assembly / test := {},
     assemblyMergeStrategy in assembly := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
