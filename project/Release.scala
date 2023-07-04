@@ -20,15 +20,15 @@ object Release {
 
 
 
-  def runAssembly = ReleaseStep(action = (st: State) ⇒ {
+  def runAssembly: ReleaseStep = ReleaseStep(action = (st: State) ⇒ {
     val extracted = Project.extract(st)
     val ref = extracted.get(thisProjectRef)
     extracted.runAggregated(assembly in Global in ref, st)
   })
 
-  def commitAllRelease = ReleaseStep(action = (st: State) => commitAll(st, releaseCommitMessage))
+  def commitAllRelease: ReleaseStep = ReleaseStep(action = (st: State) => commitAll(st, releaseCommitMessage))
 
-  def commitAllNext = ReleaseStep(action = (st: State) => commitAll(st, releaseNextCommitMessage))
+  def commitAllNext: ReleaseStep = ReleaseStep(action = (st: State) => commitAll(st, releaseNextCommitMessage))
 
   def commitAll: (State, TaskKey[String]) => State = { (st: State, commitMessage: TaskKey[String]) ⇒
     val log = toTempProcessLogger(st)
@@ -63,7 +63,7 @@ object Release {
     override def buffer[T](f: => T): T = st.log.buffer(f)
   }
 
-  def writeReleaseVersionFile = ReleaseStep(action= (st: State) ⇒ {
+  def writeReleaseVersionFile: ReleaseStep = ReleaseStep(action= (st: State) ⇒ {
     // write version.conf
     st.get(ReleaseKeys.versions) match {
       case Some(v) ⇒ writeVersionFile(v._1, st.get(AttributeKey[String]("hash")))
@@ -72,7 +72,7 @@ object Release {
     st
   })
 
-  def writeNextVersionFile = ReleaseStep(action= (st: State) ⇒ {
+  def writeNextVersionFile: ReleaseStep = ReleaseStep(action= (st: State) ⇒ {
     // write version.conf
     st.get(ReleaseKeys.versions) match {
       case Some(v) ⇒ writeVersionFile(v._2, st.get(AttributeKey[String]("hash")))
