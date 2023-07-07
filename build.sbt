@@ -31,7 +31,7 @@ lazy val root = (project in file("."))
     },
 libraryDependencies ++= {
   val doclibCommonVersion = "4.0.0"
-  val kleinSourceVersion = "1.0.6"
+  val kleinSourceVersion = "1.1.0"
 
   val configVersion = "1.4.2"
   val akkaVersion = "2.8.0"
