@@ -1,9 +1,10 @@
 package io.mdcatapult.doclib.handlers
 
+import akka.stream.alpakka.amqp.scaladsl.CommittableReadResult
 import cats.data._
 import cats.implicits._
 import com.typesafe.config.Config
-import io.mdcatapult.doclib.consumer.{AbstractHandler, HandlerResult}
+import io.mdcatapult.doclib.consumer.AbstractHandler
 import io.mdcatapult.doclib.flag.MongoFlagContext
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.metadata.{MetaString, MetaValueUntyped}
@@ -16,15 +17,11 @@ import io.mdcatapult.util.models.result.UpdatedResult
 import io.mdcatapult.util.time.nowUtc
 import org.mongodb.scala.MongoCollection
 import org.mongodb.scala.result.InsertManyResult
+import play.api.libs.json.Json
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-
-
-case class RawTextHandlerResult(doclibDoc: DoclibDoc,
-                                persisted: InsertManyResult,
-                                newFilePath: String) extends HandlerResult
 
 class RawTextHandler(prefetch: Sendable[PrefetchMsg],
                      supervisor: Sendable[SupervisorMsg],
@@ -35,7 +32,7 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
                      collection: MongoCollection[DoclibDoc],
                      derivativesCollection: MongoCollection[ParentChildMapping],
                      appConfig: AppConfig)
-  extends AbstractHandler[DoclibMsg] {
+  extends AbstractHandler[DoclibMsg, RawTextHandlerResult] {
 
   private val version: Version = Version.fromConfig(config)
 
@@ -45,29 +42,42 @@ class RawTextHandler(prefetch: Sendable[PrefetchMsg],
     * @param msg IncomingMsg to process
     * @return
     */
-  override def handle(msg: DoclibMsg): Future[Option[RawTextHandlerResult]] = {
+  override def handle(doclibMsgWrapper: CommittableReadResult): Future[(CommittableReadResult, Try[RawTextHandlerResult])]= {
 
-    logReceived(msg.id)
-    val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
+    Try {
+      Json.parse(doclibMsgWrapper.message.bytes.utf8String).as[DoclibMsg]
+    } match {
+      case Success(msg: DoclibMsg) => {
+        logReceived(msg.id)
+        val flagContext = new MongoFlagContext(appConfig.name, version, collection, nowUtc)
 
-    val rawTextProcess = for {
-      doc <- OptionT(findDocById(collection, msg.id))
-      if !flagContext.isRunRecently(doc)
-      started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
-      // TODO - validate mimetype here??
-      newFilePath <- OptionT(extractRawText(doc.source))
-      persisted <- OptionT(persist(doc, newFilePath))
-      _ <- OptionT(enqueue(newFilePath, doc))
-      _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
-    } yield RawTextHandlerResult(doc, persisted, newFilePath)
+        val rawTextProcess = for {
+          doc <- OptionT(findDocById(collection, msg.id))
+          if !flagContext.isRunRecently(doc)
+          started: UpdatedResult <- OptionT.liftF(flagContext.start(doc))
+          // TODO - validate mimetype here??
+          newFilePath <- OptionT(extractRawText(doc.source))
+          persisted <- OptionT(persist(doc, newFilePath))
+          _ <- OptionT(enqueue(newFilePath, doc))
+          _ <- OptionT.liftF(flagContext.end(doc, noCheck = started.changesMade))
+        } yield RawTextHandlerResult(doc, persisted, newFilePath)
+        val finalResult = rawTextProcess.value.transformWith({
+          case Success(Some(value: RawTextHandlerResult)) => Future((doclibMsgWrapper, Success(value)))
+          case Success(None) => Future((doclibMsgWrapper, Failure(new Exception(s"No raw text result was present for ${msg.id}"))))
+          case Failure(e) => Future((doclibMsgWrapper, Failure(e)))
+        })
 
-    postHandleProcess(
-      documentId = msg.id,
-      handlerResult = rawTextProcess.value,
-      flagContext = flagContext,
-      supervisor,
-      collection
-    )
+        postHandleProcess(
+          documentId = msg.id,
+          handlerResult = finalResult,
+          flagContext = flagContext,
+          supervisor,
+          collection
+        )
+
+      }
+      case Failure(x: Throwable) => Future((doclibMsgWrapper, Failure(new Exception(s"Unable to decode message received. ${x.getMessage}"))))
+    }
   }
 
   def enqueue(newFilePath: String, doc: DoclibDoc): Future[Option[Boolean]] = {

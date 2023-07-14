@@ -30,22 +30,24 @@ lazy val root = (project in file("."))
       }
     },
 libraryDependencies ++= {
-  val doclibCommonVersion = "3.1.1"
-  val kleinSourceVersion = "1.0.6"
+  val doclibCommonVersion = "4.0.0"
+  val kleinSourceVersion = "1.1.0"
 
-  val configVersion = "1.4.1"
-  val akkaVersion = "2.6.18"
-  val catsVersion = "2.6.1"
-  val scalacticVersion = "3.2.10"
-  val scalaTestVersion = "3.2.11"
-  val scalaLoggingVersion = "3.9.4"
-  val logbackClassicVersion = "1.2.10"
+  val configVersion = "1.4.2"
+  val akkaVersion = "2.8.0"
+  val catsVersion = "2.9.0"
+  val scalacticVersion = "3.2.15"
+  val scalaTestVersion = "3.2.15"
+  val scalaLoggingVersion = "3.9.5"
+  val logbackClassicVersion = "1.4.7"
+  val log4jVersion = "2.20.0"
 
   Seq(
     "org.scalactic" %% "scalactic"                   % scalacticVersion,
      "org.scalatest" %% "scalatest"                  % scalaTestVersion % Test,
      "com.typesafe.akka" %% "akka-slf4j"             % akkaVersion,
      "ch.qos.logback" % "logback-classic"            % logbackClassicVersion,
+     "org.apache.logging.log4j" % "log4j-core"         % log4jVersion,
      "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion,
      "com.typesafe" % "config"                       % configVersion,
      "org.typelevel" %% "cats-kernel"                % catsVersion,
@@ -60,8 +62,8 @@ libraryDependencies ++= {
   )
   .settings(
     assemblyJarName := "consumer.jar",
-    test in assembly := {},
-    assemblyMergeStrategy in assembly := {
+    assembly / test := {},
+    assembly / assemblyMergeStrategy := {
       case PathList("META-INF", "MANIFEST.MF") => MergeStrategy.discard
       case PathList("META-INF", "INDEX.LIST") => MergeStrategy.discard
       case PathList("META-INF", "jpms.args") => MergeStrategy.discard
@@ -85,7 +87,7 @@ libraryDependencies ++= {
       case n if n.startsWith("logback.xml") => MergeStrategy.first
       case meta(_) => MergeStrategy.first
       case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
+        val oldStrategy = (assembly / assemblyMergeStrategy).value
         oldStrategy(x)
     }
   )
