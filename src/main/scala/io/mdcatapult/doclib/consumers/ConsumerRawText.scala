@@ -2,9 +2,8 @@ package io.mdcatapult.doclib.consumers
 
 import akka.actor.ActorSystem
 import akka.stream.Materializer
-import com.spingo.op_rabbit.SubscriptionRef
 import io.mdcatapult.doclib.consumer.AbstractConsumer
-import io.mdcatapult.doclib.handlers.RawTextHandler
+import io.mdcatapult.doclib.handlers.{AnyHandlerResult, RawTextHandler, RawTextHandlerResult}
 import io.mdcatapult.doclib.messages._
 import io.mdcatapult.doclib.models.{AppConfig, DoclibDoc, ParentChildMapping}
 import io.mdcatapult.klein.mongo.Mongo
@@ -18,9 +17,9 @@ import scala.util.Try
 /**
   * RabbitMQ Consumer to extract files to raw text
   */
-object ConsumerRawText extends AbstractConsumer {
+object ConsumerRawText extends AbstractConsumer[DoclibMsg, RawTextHandlerResult] {
 
-  override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): SubscriptionRef = {
+  override def start()(implicit as: ActorSystem, m: Materializer, mongo: Mongo): Unit = {
     import as.dispatcher
 
     AdminServer(config).start()
@@ -31,9 +30,9 @@ object ConsumerRawText extends AbstractConsumer {
       mongo.getCollection(config.getString("mongo.doclib-database"), config.getString("mongo.derivative-collection"))
 
     /** initialise queues **/
-    val downstream: Queue[PrefetchMsg] = queue("downstream.queue")
-    val upstream: Queue[DoclibMsg] = queue("consumer.queue")
-    val supervisor: Queue[SupervisorMsg] = queue("doclib.supervisor.queue")
+    val downstream: Queue[PrefetchMsg, AnyHandlerResult] = Queue[PrefetchMsg, AnyHandlerResult](config.getString("downstream.queue"))
+    val upstream: Queue[DoclibMsg, RawTextHandlerResult] = Queue[DoclibMsg, RawTextHandlerResult](config.getString("consumer.queue"))
+    val supervisor: Queue[SupervisorMsg, AnyHandlerResult] = Queue[SupervisorMsg, AnyHandlerResult](config.getString("doclib.supervisor.queue"))
 
     val readLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.read-limit"))
     val writeLimiter = SemaphoreLimitedExecution.create(config.getInt("mongo.write-limit"))
