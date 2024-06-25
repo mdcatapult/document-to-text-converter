@@ -4,7 +4,7 @@ import Release._
 lazy val scala_2_13 = "2.13.14"
 
 val doclibCommonVersion = "5.0.1"
-val kleinSourceVersion = "1.1.1"
+val kleinSourceVersion = "1.1.2"
 
 val configVersion = "1.4.3"
 val pekkoVersion = "1.0.2"
